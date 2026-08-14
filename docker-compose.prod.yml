@@ -1,0 +1,59 @@
+services:
+  app:
+    image: ${STARKEEP_IMAGE:-starkeep:f127ce5}
+    container_name: starkeep-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://starkeep:${POSTGRES_PASSWORD}@db:5432/starkeep
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "127.0.0.1:3210:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/dashboard').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  worker:
+    image: ${STARKEEP_IMAGE:-starkeep:f127ce5}
+    container_name: starkeep-worker
+    restart: unless-stopped
+    command: ["node_modules/.bin/tsx", "worker.ts"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://starkeep:${POSTGRES_PASSWORD}@db:5432/starkeep
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+  db:
+    image: postgres:17
+    container_name: starkeep-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: starkeep
+      POSTGRES_USER: starkeep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - starkeep-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U starkeep -d starkeep"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    container_name: starkeep-redis
+    restart: unless-stopped
+    volumes:
+      - starkeep-redis:/data
+volumes:
+  starkeep-db:
+  starkeep-redis:

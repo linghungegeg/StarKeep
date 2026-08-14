@@ -1,0 +1,2 @@
+ALTER TABLE scan_runs
+  ADD COLUMN IF NOT EXISTS auto_unstar_count INTEGER NOT NULL DEFAULT 0;
